@@ -200,7 +200,7 @@ public:
 
 int main()
 {
-    std::cout << "Advent of Code 2024 - Day 03" << std::endl;
+    std::cout << "Advent of Code 2024 - Day 04" << std::endl;
 
     const std::string inputFileName = "input";
     Helper helper;
