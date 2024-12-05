@@ -23,7 +23,6 @@ public:
     void parseValues()
     {
         // parse values and put these into aux arrays
-        std::string currentLine;
         for(int i=0; i<_fileInput.size(); ++i)
         {
             // get values

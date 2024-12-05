@@ -72,7 +72,6 @@ public:
     {
         _mulValues.clear();
         // parse values and put these into aux vector
-        std::string currentLine;
         for(int i=0; i<_fileInput.size(); ++i)
         {
             std::string currentLine = _fileInput[i];
@@ -95,7 +94,6 @@ public:
     {
         _mulValues.clear();
         // parse values and put these into aux vector
-        std::string currentLine;
         bool enabled = true;
         for(int i=0; i<_fileInput.size(); ++i)
         {
