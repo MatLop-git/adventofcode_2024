@@ -150,6 +150,27 @@ public:
     void calculateSecondPuzzleAnswer()
     {
         this->_secondPuzzleAnswer = 0;
+
+        // go through data searching for 'MAS' in X
+        int xmasWordSize = XMAS_WORD.size();
+        int fileInputSize = _fileInput.size();
+        for(int i=0; i<fileInputSize; ++i)
+        {
+            std::string currentLine = _fileInput[i];
+            int currentLineSize = currentLine.size();
+            for(int j=0; j<currentLineSize; ++j)
+            {
+                if( currentLine[j] == 'A')
+                {
+                    if( (j-1 > -1) && (j+1 < currentLineSize) && (i-1 > -1) && (i+1 < fileInputSize) 
+                        && ((_fileInput[i-1][j-1] == 'M' && _fileInput[i+1][j+1] == 'S') || (_fileInput[i-1][j-1] == 'S' && _fileInput[i+1][j+1] == 'M')) 
+                        && ((_fileInput[i-1][j+1] == 'M' && _fileInput[i+1][j-1] == 'S') || (_fileInput[i-1][j+1] == 'S' && _fileInput[i+1][j-1] == 'M')) )
+                    {
+                        this->_secondPuzzleAnswer++;
+                    }
+                }
+            }
+        }
     }
 
    void calculateAnswers(std::string inputFileName)
