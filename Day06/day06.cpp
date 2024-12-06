@@ -15,11 +15,10 @@ public:
 
     enum Direction { Up = 0, Right = 1, Down = 2, Left = 3 };
     std::map<int, std::set<int> > _guardArea;
+    std::pair<int, int> _guardInitialPosition;
 
-    void calculateFirstPuzzleAnswer()
+    void calculateGuardPositions()
     {
-        this->_firstPuzzleAnswer = 0;
-
         Direction currentDirection = Up;
         // find guard starting position
         int x = -1;
@@ -32,6 +31,7 @@ public:
         }
         while( x < 0 );
 
+        _guardInitialPosition = std::pair<int, int>(x, y);
 //        std::cout << "starting pos: " << x << "," << y << std::endl;
 
         // find guard positions
@@ -107,11 +107,16 @@ public:
             }
         }
         while( exited == false );
+    }
 
-        for (auto const& [key, val] : _guardArea)
+    void calculateFirstPuzzleAnswer()
+    {
+        this->_firstPuzzleAnswer = 0;
+
+        for (auto const& [y, xs] : _guardArea)
         {
-            this->_firstPuzzleAnswer += val.size();
-//            std::cout << key << ':' << val.size() << std::endl;
+            this->_firstPuzzleAnswer += xs.size();
+//            std::cout << y << ':' << xs.size() << std::endl;
         }
     }
 
@@ -119,11 +124,122 @@ public:
     {
         this->_secondPuzzleAnswer = 0;
 
+        // put an obstacle on each point of the guard positions and check loop
+        for (auto const& [guardAreaY, guardAreaXs] : _guardArea)
+        {
+            for( auto const& guardAreaX : guardAreaXs )
+            {
+                // skip initial position
+                int x = _guardInitialPosition.first;
+                int y = _guardInitialPosition.second;
+                if( guardAreaX != x || guardAreaY != y )
+                {
+                    _fileInput[guardAreaY][guardAreaX] = '#';
+
+                    Direction currentDirection = Up;
+                    std::map< int, std::map<int, int> > currentGuardArea;
+                    bool exited = false;
+                    do
+                    {
+                        switch (currentDirection)
+                        {
+                            case Up:
+                                if( y < 1 )
+                                {
+                                    exited = true;
+                                }
+                                else if( _fileInput[y-1][x] == '#' )
+                                {
+                                    currentDirection = Right;
+                                }
+                                else
+                                {
+                                    y--;
+                                    currentGuardArea[y][x]++;
+                                    if( currentGuardArea[y][x] > 4 )
+                                    {
+                                        this->_secondPuzzleAnswer++;
+                                        exited = true;
+                                    }
+                                }
+                                break;
+                            case Right:
+                                if( x >= _fileInput[y].size()-1 )
+                                {
+                                    exited = true;
+                                }
+                                else if( _fileInput[y][x+1] == '#' )
+                                {
+                                    currentDirection = Down;
+                                }
+                                else
+                                {
+                                    x++;
+                                    currentGuardArea[y][x]++;
+                                    if( currentGuardArea[y][x] > 4 )
+                                    {
+                                        this->_secondPuzzleAnswer++;
+                                        exited = true;
+                                    }
+                                }
+                                break;
+                            case Down:
+                                if( y >= _fileInput.size()-1 )
+                                {
+                                    exited = true;
+                                }
+                                else if( _fileInput[y+1][x] == '#' )
+                                {
+                                    currentDirection = Left;
+                                }
+                                else
+                                {
+                                    y++;
+                                    currentGuardArea[y][x]++;
+                                    if( currentGuardArea[y][x] > 4 )
+                                    {
+                                        this->_secondPuzzleAnswer++;
+                                        exited = true;
+                                    }
+                                }
+                                break;
+                            case Left:
+                                if( x < 1 )
+                                {
+                                    exited = true;
+                                }
+                                else if( _fileInput[y][x-1] == '#' )
+                                {
+                                    currentDirection = Up;
+                                }
+                                else
+                                {
+                                    x--;
+                                    currentGuardArea[y][x]++;
+                                    if( currentGuardArea[y][x] > 4 )
+                                    {
+                                        this->_secondPuzzleAnswer++;
+                                        exited = true;
+                                    }
+                                }
+                                break;
+                            default:
+                                exited = true;
+                                break;
+                        }
+                    }
+                    while( exited == false );
+
+                    _fileInput[guardAreaY][guardAreaX] = '.';
+                }
+            }
+        }
     }
 
    void calculateAnswers(std::string inputFileName)
    {
         this->readFileInput(inputFileName);
+        this->calculateGuardPositions();
         this->calculateFirstPuzzleAnswer();
         this->calculateSecondPuzzleAnswer();
    }
