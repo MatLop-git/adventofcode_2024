@@ -21,6 +21,8 @@ public:
 
     std::map<int, OrderingRule> _orderingRules;
     std::vector< std::vector<int> > _pagesUpdates;
+    std::vector< std::vector<int> > _pagesUpdatesOk;
+    std::vector< std::vector<int> > _pagesUpdatesToFix;
 
     void parseValues()
     {
@@ -38,8 +40,10 @@ public:
                 int divPos = currentLine.find_first_of('|');
                 int leftPage = std::stoi( currentLine.substr(0, divPos) );
                 int rightPage = std::stoi( currentLine.substr(divPos+1) );
+                _orderingRules[ leftPage ].page = leftPage;
                 _orderingRules[ leftPage ].pagesAfter.push_back( rightPage );
-                _orderingRules[ rightPage ].pagesAfter.push_back( rightPage );
+                _orderingRules[ rightPage ].page = rightPage;
+                _orderingRules[ rightPage ].pagesBefore.push_back( leftPage );
             }
             // parse pages updates
             else
@@ -71,22 +75,18 @@ public:
 //        }
     }
 
-    void calculateFirstPuzzleAnswer()
+    void validatePagesUpdates()
     {
-        this->_firstPuzzleAnswer = 0;
-
-        parseValues();
-
         for(int i=0; i<_pagesUpdates.size(); ++i)
         {
             // check correct update
             bool isCorrect = true;
-            std::vector<int> pageUpdate = _pagesUpdates[i];
-            int pageUpdateSize = pageUpdate.size();
+            std::vector<int> pagesUpdate = _pagesUpdates[i];
+            int pagesUpdateSize = pagesUpdate.size();
             int j=0;
-            while( isCorrect && (j<pageUpdateSize) )
+            while( isCorrect && (j<pagesUpdateSize) )
             {
-                int page = _pagesUpdates[i][j];
+                int page = pagesUpdate[j];
                 if( _orderingRules.find(page) != _orderingRules.end() )
                 {
                     OrderingRule rule = _orderingRules[page];
@@ -94,14 +94,14 @@ public:
                     int k=j-1;
                     while( isCorrect && (k>=0) )
                     {
-                        isCorrect = (std::find(rule.pagesAfter.begin(), rule.pagesAfter.end(), pageUpdate[k]) == rule.pagesAfter.end());
+                        isCorrect = (std::find(rule.pagesAfter.begin(), rule.pagesAfter.end(), pagesUpdate[k]) == rule.pagesAfter.end());
                         k--;
                     }
                     // check next pages
                     k=j+1;
-                    while( isCorrect && (k<pageUpdateSize) )
+                    while( isCorrect && (k<pagesUpdateSize) )
                     {
-                        isCorrect = (std::find(rule.pagesBefore.begin(), rule.pagesBefore.end(), pageUpdate[k]) == rule.pagesBefore.end());
+                        isCorrect = (std::find(rule.pagesBefore.begin(), rule.pagesBefore.end(), pagesUpdate[k]) == rule.pagesBefore.end());
                         k++;
                     }
                 }
@@ -109,11 +109,28 @@ public:
             }
             if( isCorrect )
             {
-                int middleValue = (pageUpdateSize/2);
-                middleValue = pageUpdate[middleValue];
-                this->_firstPuzzleAnswer += middleValue;
-//                std::cout << (i+1) << " - " << middleValue << std::endl;
+                _pagesUpdatesOk.push_back( pagesUpdate );
             }
+            else
+            {
+                _pagesUpdatesToFix.push_back( pagesUpdate );
+            }
+        }
+    }
+
+    void calculateFirstPuzzleAnswer()
+    {
+        this->_firstPuzzleAnswer = 0;
+
+        // sum the middle page of correct pages updates
+        std::vector<int> pagesUpdate;
+        for(int i=0; i<_pagesUpdatesOk.size(); ++i)
+        {
+            pagesUpdate = _pagesUpdatesOk[i];
+            int middleValue = (pagesUpdate.size()/2);
+            middleValue = pagesUpdate[middleValue];
+            this->_firstPuzzleAnswer += middleValue;
+//            std::cout << (i+1) << " - " << middleValue << std::endl;
         }
     }
 
@@ -121,11 +138,66 @@ public:
     {
         this->_secondPuzzleAnswer = 0;
 
+        // fix incorrect pages updates
+        for(int i=0; i<_pagesUpdatesToFix.size(); ++i)
+        {
+            // fix pages update
+            bool isCorrect = false;
+            std::vector<int> pagesUpdate = _pagesUpdatesToFix[i];
+            int pagesUpdateSize = pagesUpdate.size();
+            int j=0;
+            while( !isCorrect || (j<pagesUpdateSize) )
+            {
+                isCorrect = true;
+                pagesUpdate = _pagesUpdatesToFix[i];
+                int page = pagesUpdate[j];
+                if( _orderingRules.find(page) != _orderingRules.end() )
+                {
+                    OrderingRule rule = _orderingRules[page];
+                    // check previous pages
+                    int k=j-1;
+                    while( isCorrect && (k>=0) )
+                    {
+                        isCorrect = (std::find(rule.pagesAfter.begin(), rule.pagesAfter.end(), pagesUpdate[k]) == rule.pagesAfter.end());
+                        if( !isCorrect )
+                        {
+                            _pagesUpdatesToFix[i].erase(_pagesUpdatesToFix[i].begin()+j);
+                            _pagesUpdatesToFix[i].insert(_pagesUpdatesToFix[i].begin()+k, page);
+                            j = -1;
+                        }
+                        k--;
+                    }
+// no need to check for next pages as we are checking from the begining again
+//                    // check next pages
+//                    k=j+1;
+//                    while( isCorrect && (k<pagesUpdateSize) )
+//                    {
+//                        isCorrect = (std::find(rule.pagesBefore.begin(), rule.pagesBefore.end(), pagesUpdate[k]) == rule.pagesBefore.end());
+//                        if( !isCorrect )
+//                        {
+//                            _pagesUpdatesToFix[i].erase(_pagesUpdatesToFix[i].begin()+j);
+//                            _pagesUpdatesToFix[i].insert(_pagesUpdatesToFix[i].begin()+k, page);
+//                            j = -1;
+//                        }
+//                        k++;
+//                    }
+                }
+                j++;
+            }
+
+            // add the middle page of fixed pages update to the result
+            int middleValue = (pagesUpdate.size()/2);
+            middleValue = pagesUpdate[middleValue];
+            this->_secondPuzzleAnswer += middleValue;
+//            std::cout << (i+1) << " - " << middleValue << std::endl;
+        }
     }
 
    void calculateAnswers(std::string inputFileName)
    {
         this->readFileInput(inputFileName);
+        this->parseValues();
+        this->validatePagesUpdates();
         this->calculateFirstPuzzleAnswer();
         this->calculateSecondPuzzleAnswer();
    }
