@@ -40,6 +40,11 @@ public:
         return scoredTops.size();
     }
 
+    int getRating()
+    {
+        return getTrailsCount();
+    }
+
     void addTrail(std::vector< std::pair<int, int> > trail) { _trails.push_back(trail); }
 };
 
@@ -54,11 +59,6 @@ class Helper : public IAoCHelper
     {
         _maxX = _fileInput[0].size();
         _maxY = _fileInput.size();
-    }
-
-    virtual void calculateFirstPuzzleAnswer()
-    {
-        this->_firstPuzzleAnswer = 0;
 
         // find the trailheads and their trails
         for(int i; i<_fileInput.size(); ++i)
@@ -79,24 +79,6 @@ class Helper : public IAoCHelper
                 }
             }
             while(pos != std::string::npos);
-        }
-
-        // get the trailhead score
-        for(int i=0; i<_trailHeads.size(); ++i)
-        {
-            TrailHead trailHead = _trailHeads[i];
-//            std::cout << "TrailHead " << i << " (" << trailHead.getPosition().first << ", " << trailHead.getPosition().second << ") : " << trailHead.getTrailsCount() << " - " << trailHead.getScore() << std::endl;
-//            for(int j=0; j<trailHead.getTrailsCount(); ++j)
-//            {
-//                std::cout << "Trail " << j;
-//                for(int k=0; k<trailHead._trails[j].size(); ++k)
-//                {
-//                    auto position = trailHead._trails[j][k];
-//                    std::cout << " (" << position.first << "," << position.second << ")";
-//                }
-//                std::cout << std::endl;
-//            }
-            _firstPuzzleAnswer += trailHead.getScore();
         }
     }
 
@@ -181,11 +163,28 @@ class Helper : public IAoCHelper
         }
     }
 
+    virtual void calculateFirstPuzzleAnswer()
+    {
+        this->_firstPuzzleAnswer = 0;
+
+        // get the trailheads score
+        for(int i=0; i<_trailHeads.size(); ++i)
+        {
+            TrailHead trailHead = _trailHeads[i];
+            _firstPuzzleAnswer += trailHead.getScore();
+        }
+    }
+
     virtual void calculateSecondPuzzleAnswer()
     {
         this->_secondPuzzleAnswer = 0;
 
-        // TODO
+        // get the trailheads rating
+        for(int i=0; i<_trailHeads.size(); ++i)
+        {
+            TrailHead trailHead = _trailHeads[i];
+            _secondPuzzleAnswer += trailHead.getRating();
+        }
     }
 };
 
