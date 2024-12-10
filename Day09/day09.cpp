@@ -109,8 +109,7 @@ class Helper : public IAoCHelper
         }
         while( i >= 0 && pos < diskUsage );
 
-//        saveOrderedDiskMapFileForDebug(rawOrderedDiskMap);
-
+        // calculate checksum
         for(int i=rawOrderedDiskMap.size()-1; i>=0; --i)
         {
             unsigned long long checksum = (rawOrderedDiskMap[i] * i);
@@ -134,11 +133,132 @@ class Helper : public IAoCHelper
         outputFile.close();
     }
 
+    void saveOrderedDiskMapFileForDebug(std::vector<std::pair<int, int>> rawOrderedDiskMap)
+    {
+        // Create and open a text file
+        std::ofstream outputFile("output.txt");
+
+        // Write to the file
+        for(int i=0; i<rawOrderedDiskMap.size(); ++i)
+        {
+            for(int j=0; j<rawOrderedDiskMap[i].second; ++j)
+            {
+                outputFile << std::to_string(rawOrderedDiskMap[i].first);
+                outputFile << ",";
+            }
+        }
+
+        // Close the file
+        outputFile.close();
+    }
+
     virtual void calculateSecondPuzzleAnswer()
     {
         this->_secondPuzzleAnswer = 0;
 
-        // TODO
+        // initialize free space and ordered disk map counters
+        std::vector<std::pair<int, int>> rawOrderedDiskMap; // {id, size}   id -1 means free space
+        int pos = 0;
+        int size = 0;
+        int diskUsage = 0;
+        for(int i=0; i<_initialFilesMap.size(); ++i)
+        {
+            diskUsage += _initialFilesMap[i];
+            rawOrderedDiskMap.push_back( {i, _initialFilesMap[i]} );
+            if( i < _initialFreeSpaceMap.size() )
+            {
+                size = _initialFreeSpaceMap[i];
+                if( size > 0 )
+                {
+                    rawOrderedDiskMap.push_back( {-1, size} );
+                }
+            }
+        }
+
+        // move file blocks from the end
+        int i = rawOrderedDiskMap.size()-1;
+        do
+        {
+            std::pair<int, int> block = rawOrderedDiskMap[i];
+            int blockId = block.first;
+            if( blockId < 0 )
+            {
+                // rawOrderedDiskMap.erase(rawOrderedDiskMap.begin()+i);
+                i--;
+            }
+            else
+            {
+                int blockSize = block.second;
+                // find free space for the file blocks to be arranged
+                int j = 0;
+                bool found = false;
+                do
+                {
+                    if( rawOrderedDiskMap[j].first < 0 && rawOrderedDiskMap[j].second >= blockSize )
+                    {
+                        found = true;
+                        // empty the position used by current block, merge free spaces if needed
+                        if( rawOrderedDiskMap[i-1].first != -1 && (i+1 < rawOrderedDiskMap.size() || rawOrderedDiskMap[i+1].first != -1) )
+                        {
+                            rawOrderedDiskMap[i].first = -1;
+                        }
+                        else
+                        {
+                            if( rawOrderedDiskMap[i-1].first == -1 && rawOrderedDiskMap[i+1].first == -1 )
+                            {
+                                rawOrderedDiskMap[i-1].second += blockSize;
+                                rawOrderedDiskMap[i-1].second += rawOrderedDiskMap[i+1].second;
+                                rawOrderedDiskMap.erase(rawOrderedDiskMap.begin()+i+1);
+                            }
+                            else if( rawOrderedDiskMap[i-1].first == -1 )
+                            {
+                                rawOrderedDiskMap[i-1].second += blockSize;
+                            }
+                            else
+                            {
+                                rawOrderedDiskMap[i+1].second += blockSize;
+                            }
+                            rawOrderedDiskMap.erase(rawOrderedDiskMap.begin()+i);
+                        }
+ 
+                        // update remaining free space after block move
+                        if( rawOrderedDiskMap[j].second == blockSize )
+                        {
+                            rawOrderedDiskMap[j].first = blockId;
+                        }
+                        else
+                        {
+                            rawOrderedDiskMap[j].second -= blockSize;
+                            // insert block in updated position
+                            rawOrderedDiskMap.insert(rawOrderedDiskMap.begin()+j, block);
+                            i++;
+                        }
+                    }
+                    j++;
+                }
+                while( found == false && j < i );
+
+                i--;
+            }
+        }
+        while( i >= 0 );
+
+        // calculate checksum
+        i = 0;
+        for(int j=0; j<rawOrderedDiskMap.size(); ++j)
+        {
+            int blockId = rawOrderedDiskMap[j].first;
+            int blockSize = rawOrderedDiskMap[j].second;
+            if( blockId > -1 )
+            {
+                for(int k=0; k<blockSize; ++k)
+                {
+                    unsigned long long checksum = (blockId * (i + k));
+                    _secondPuzzleAnswer += checksum;
+                }
+            }
+            i += blockSize;
+        }
     }
 };
 
