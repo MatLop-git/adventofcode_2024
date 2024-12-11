@@ -196,7 +196,7 @@ int main()
     Helper helper;
     helper.calculateAnswers(inputFileName);
 
-    int answer = helper.getFirstPuzzleAnswer();
+    unsigned long long answer = helper.getFirstPuzzleAnswer();
     std::cout << "First half answer: " << answer << std::endl;
 
     answer = helper.getSecondPuzzleAnswer();
