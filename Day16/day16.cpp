@@ -13,6 +13,7 @@ class Helper : public IAoCHelper
 
     void prepareInput()
     {
+        // parse maze, start tile and end tile
         _maze = std::vector< std::vector<bool> >(_fileInput.size());
         for(int y=0; y<_fileInput.size(); ++y)
         {
@@ -24,12 +25,12 @@ class Helper : public IAoCHelper
                 }
                 else
                 {
-                    if( _fileInput[y][x] == 'E' )
+                    if( _fileInput[y][x] == 'S' )
                     {
                         _startTile.first = x;
                         _startTile.second = y;
                     }
-                    else if( _fileInput[y][x] == 'S' )
+                    else if( _fileInput[y][x] == 'E' )
                     {
                         _endTile.first = x;
                         _endTile.second = y;
@@ -40,69 +41,73 @@ class Helper : public IAoCHelper
         }
     }
 
-    std::vector< std::vector<int> > generateMapState()
+    std::vector< std::vector<unsigned long long> > generateMapState()
     {
-        std::vector< std::vector<int> > mapState(_maze.size(), std::vector<int>(_maze[0].size(), 0));
+        // transform maze (false,true) matrix into states (0,ULLONG_MAX) matrix
+        std::vector< std::vector<unsigned long long> > mapState(_maze.size(), std::vector<unsigned long long>(_maze[0].size(), 0));
         for(int y=0; y<_maze.size(); ++y)
         {
             for(int x=0; x<_maze[y].size(); ++x)
             {
                 if( _maze[y][x] )
                 {
-                    mapState[y][x] = 1;
+                    mapState[y][x] = ULLONG_MAX;
                 }
             }
         }
         return mapState;
     }
 
-    void printMapState(std::vector< std::vector<int> > mapState)
+    void printMapState(std::vector< std::vector<unsigned long long> > mapState)
     {
         std::cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
         for(int y=0; y<mapState.size(); ++y)
         {
             for(int x=0; x<mapState[y].size(); ++x)
             {
-                if( mapState[y][x] == 2 )
+                if( mapState[y][x] == 0 )
                 {
-                    std::cout << 'x';
+                    std::cout << '.';
                 }
-                else if( mapState[y][x] == 1 )
+                else if( mapState[y][x] == ULLONG_MAX )
                 {
                     std::cout << '#';
                 }
                 else
                 {
-                    std::cout << '.';
+                    std::cout << 'x';
                 }
             }
             std::cout << std::endl;
         }
     }
 
-    long long findPath(std::vector< std::vector<int> > mapState, int x, int y, Direction direction, unsigned long long &minScore, unsigned long long score=0)
+    long long findPath(std::vector< std::vector<unsigned long long> > &mapState, int x, int y, Direction direction, unsigned long long &minScore, unsigned long long score=0)
     {
         if( score > minScore )
         {
+            // this path was not explored yet but it is already taking longer the previous best past, so stop going through it
             return 0;
         }
 
         if( _endTile.first == x && _endTile.second == y )
         {
-            // reached end tile
+            // reached end tile, score is valid so return it
             return score;
         }
 
-        // avoid going through this tile again
-        mapState[y][x] = 2;
+        if( mapState[y][x] > 0 && mapState[y][x] < score )
+        {
+            // this tile was explored in a previous run in a better way (less score to reach it), so stop going through this path
+            return 0;
+        }
 
-//        printMapState(mapState);
-//        std::cin.ignore();
-//        std::this_thread::sleep_for((std::chrono::milliseconds)100); 
-//        long long score = -1;
+        // score this tile for next paths
+        mapState[y][x] = score;
+
         unsigned long long nextScore = 0;
         // try go right
-        if( (direction != Direction::Left) && (x+1 < mapState[y].size()) && (mapState[y][x+1] == false) )
+        if( (direction != Direction::Left) && (x+1 < mapState[y].size()) && (mapState[y][x+1] != ULLONG_MAX) )
         {
             nextScore = findPath(mapState, x+1, y, Direction::Right, minScore, score+(direction == Direction::Right ? 1 : 1001));
             if( nextScore > 0 )
@@ -110,17 +115,8 @@ class Helper : public IAoCHelper
                 minScore = nextScore;
             }
         }
-        // try go left
-        if( (direction != Direction::Right) && (x-1 >= 0) && (mapState[y][x-1] == false) )
-        {
-            nextScore = findPath(mapState, x-1, y, Direction::Left, minScore, score+(direction == Direction::Left ? 1 : 1001));
-            if( nextScore > 0 )
-            {
-                minScore = nextScore;
-            }
-        }
         // try go up
-        if( (direction != Direction::Down) && (y-1 >= 0) && (mapState[y-1][x] == false) )
+        if( (direction != Direction::Down) && (y-1 >= 0) && (mapState[y-1][x] != ULLONG_MAX) )
         {
             nextScore = findPath(mapState, x, y-1, Direction::Up, minScore, score+(direction == Direction::Up ? 1 : 1001));
             if( nextScore > 0 )
@@ -128,8 +124,17 @@ class Helper : public IAoCHelper
                 minScore = nextScore;
             }
         }
+        // try go left
+        if( (direction != Direction::Right) && (x-1 >= 0) && (mapState[y][x-1] != ULLONG_MAX) )
+        {
+            nextScore = findPath(mapState, x-1, y, Direction::Left, minScore, score+(direction == Direction::Left ? 1 : 1001));
+            if( nextScore > 0 )
+            {
+                minScore = nextScore;
+            }
+        }
         // try go down
-        if( (direction != Direction::Up) && (y+1 < mapState.size()) && (mapState[y+1][x] == false) )
+        if( (direction != Direction::Up) && (y+1 < mapState.size()) && (mapState[y+1][x] != ULLONG_MAX) )
         {
             nextScore = findPath(mapState, x, y+1, Direction::Down, minScore, score+(direction == Direction::Down ? 1 : 1001));
             if( nextScore > 0 )
@@ -138,9 +143,6 @@ class Helper : public IAoCHelper
             }
         }
 
-        // restore tile emptyness
-        mapState[y][x] = 0;
-
         return 0;
     }
 
@@ -148,7 +150,7 @@ class Helper : public IAoCHelper
     {
         this->_firstPuzzleAnswer = ULLONG_MAX;
 
-        std::vector< std::vector<int> > mapState = generateMapState();
+        std::vector< std::vector<unsigned long long> > mapState = generateMapState();
 
         // calculate path
         Direction currentDirection = Direction::Right;
