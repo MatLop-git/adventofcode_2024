@@ -9,6 +9,10 @@ class Helper : public IAoCHelper
     std::pair<int, int> _startTile;
     std::pair<int, int> _endTile;
     std::vector< std::vector<bool> > _maze;
+    unsigned long long _minScore;
+    std::vector< std::vector< std::pair<int, int> > > _bestPaths;
+
+    std::vector< std::pair<int, int> > _currentPath;
 
     void prepareInput()
     {
@@ -81,9 +85,9 @@ class Helper : public IAoCHelper
         }
     }
 
-    long long findPath(std::vector< std::vector<unsigned long long> > &mapState, int x, int y, Direction direction, unsigned long long &minScore, unsigned long long score=0)
+    long long findPath(std::vector< std::vector<unsigned long long> > &mapState, int x, int y, Direction direction, unsigned long long score=0)
     {
-        if( score > minScore )
+        if( score > _minScore )
         {
             // this path was not explored yet but it is already taking longer the previous best past, so stop going through it
             return 0;
@@ -108,37 +112,37 @@ class Helper : public IAoCHelper
         // try go right
         if( (direction != Direction::Left) && (x+1 < mapState[y].size()) && (mapState[y][x+1] != ULLONG_MAX) )
         {
-            nextScore = findPath(mapState, x+1, y, Direction::Right, minScore, score+(direction == Direction::Right ? 1 : 1001));
+            nextScore = findPath(mapState, x+1, y, Direction::Right, score+(direction == Direction::Right ? 1 : 1001));
             if( nextScore > 0 )
             {
-                minScore = nextScore;
+                _minScore = nextScore;
             }
         }
         // try go up
         if( (direction != Direction::Down) && (y-1 >= 0) && (mapState[y-1][x] != ULLONG_MAX) )
         {
-            nextScore = findPath(mapState, x, y-1, Direction::Up, minScore, score+(direction == Direction::Up ? 1 : 1001));
+            nextScore = findPath(mapState, x, y-1, Direction::Up, score+(direction == Direction::Up ? 1 : 1001));
             if( nextScore > 0 )
             {
-                minScore = nextScore;
+                _minScore = nextScore;
             }
         }
         // try go left
         if( (direction != Direction::Right) && (x-1 >= 0) && (mapState[y][x-1] != ULLONG_MAX) )
         {
-            nextScore = findPath(mapState, x-1, y, Direction::Left, minScore, score+(direction == Direction::Left ? 1 : 1001));
+            nextScore = findPath(mapState, x-1, y, Direction::Left, score+(direction == Direction::Left ? 1 : 1001));
             if( nextScore > 0 )
             {
-                minScore = nextScore;
+                _minScore = nextScore;
             }
         }
         // try go down
         if( (direction != Direction::Up) && (y+1 < mapState.size()) && (mapState[y+1][x] != ULLONG_MAX) )
         {
-            nextScore = findPath(mapState, x, y+1, Direction::Down, minScore, score+(direction == Direction::Down ? 1 : 1001));
+            nextScore = findPath(mapState, x, y+1, Direction::Down, score+(direction == Direction::Down ? 1 : 1001));
             if( nextScore > 0 )
             {
-                minScore = nextScore;
+                _minScore = nextScore;
             }
         }
 
@@ -159,9 +163,9 @@ class Helper : public IAoCHelper
         }
     }
 
-    long long findBestPaths(std::vector< std::vector<unsigned long long> > &mapState, std::vector< std::vector<std::pair<int, int> > > &bestPaths, int x, int y, Direction direction, unsigned long long &minScore, unsigned long long score=0, std::vector<std::pair<int, int> > path=std::vector<std::pair<int, int> >())
+    long long findBestPaths(std::vector< std::vector<unsigned long long> > &mapState, int x, int y, Direction direction, unsigned long long score=0)
     {
-        if( score > minScore )
+        if( score > _minScore )
         {
             // this path was not explored yet but it is already taking longer the previous best past, so stop going through it
             return 0;
@@ -176,84 +180,90 @@ class Helper : public IAoCHelper
         if( mapState[y][x] > 0 && mapState[y][x] < score )
         {
             // this tile was explored in a previous run in a better way (less score to reach it), so stop going through this path
-            return 0;
+            // unless this is a bifurcation, if it is there is a possibility that this path turned before and will meet the min score later
+            int possibleDirectionsFromTile = (mapState[y-1][x] != ULLONG_MAX ? 1 : 0) + (mapState[y+1][x] != ULLONG_MAX ? 1 : 0) + (mapState[y][x+1] != ULLONG_MAX ? 1 : 0) +(mapState[y][x-1] != ULLONG_MAX ? 1 : 0);
+            if( possibleDirectionsFromTile < 3 )
+            {
+                return 0;
+            }
         }
 
         // score this tile for next paths
         mapState[y][x] = score;
-        path.push_back( {x, y} );
+        _currentPath.push_back( std::pair<int, int>(x, y) );
 
         unsigned long long nextScore = 0;
         // try go right
         if( (direction != Direction::Left) && (x+1 < mapState[y].size()) && (mapState[y][x+1] != ULLONG_MAX) )
         {
-            nextScore = findBestPaths(mapState, bestPaths, x+1, y, Direction::Right, minScore, score+(direction == Direction::Right ? 1 : 1001), path);
+            nextScore = findBestPaths(mapState, x+1, y, Direction::Right, score+(direction == Direction::Right ? 1 : 1001));
             if( nextScore > 0 )
             {
                 // this path is better than previous paths, clear best paths array
-                if( nextScore < minScore )
+                if( nextScore < _minScore )
                 {
-                    bestPaths.clear();
+                    _bestPaths.clear();
                 }
-                minScore = nextScore;
-                path.push_back( {x, y} );
-                bestPaths.push_back( path );
-                path.pop_back();
+                _minScore = nextScore;
+//                _currentPath.push_back( std::pair<int, int>(x+1, y) );
+                _bestPaths.push_back( _currentPath );
+//                _currentPath.pop_back();
             }
         }
         // try go up
         if( (direction != Direction::Down) && (y-1 >= 0) && (mapState[y-1][x] != ULLONG_MAX) )
         {
-            nextScore = findBestPaths(mapState, bestPaths, x, y-1, Direction::Up, minScore, score+(direction == Direction::Up ? 1 : 1001), path);
+            nextScore = findBestPaths(mapState, x, y-1, Direction::Up, score+(direction == Direction::Up ? 1 : 1001));
             if( nextScore > 0 )
             {
                 // this path is better than previous paths, clear best paths array
-                if( nextScore < minScore )
+                if( nextScore < _minScore )
                 {
-                    bestPaths.clear();
+                    _bestPaths.clear();
                 }
-                minScore = nextScore;
-                path.push_back( {x, y} );
-                bestPaths.push_back( path );
-                path.pop_back();
+                _minScore = nextScore;
+//                _currentPath.push_back( std::pair<int, int>(x, y-1) );
+                _bestPaths.push_back( _currentPath );
+//                _currentPath.pop_back();
             }
         }
         // try go left
         if( (direction != Direction::Right) && (x-1 >= 0) && (mapState[y][x-1] != ULLONG_MAX) )
         {
-            nextScore = findBestPaths(mapState, bestPaths, x-1, y, Direction::Left, minScore, score+(direction == Direction::Left ? 1 : 1001), path);
+            nextScore = findBestPaths(mapState, x-1, y, Direction::Left, score+(direction == Direction::Left ? 1 : 1001));
             if( nextScore > 0 )
             {
                 // this path is better than previous paths, clear best paths array
-                if( nextScore < minScore )
+                if( nextScore < _minScore )
                 {
-                    bestPaths.clear();
+                    _bestPaths.clear();
                 }
-                minScore = nextScore;
-                path.push_back( {x, y} );
-                bestPaths.push_back( path );
-                path.pop_back();
+                _minScore = nextScore;
+//                _currentPath.push_back( std::pair<int, int>(x-1, y) );
+                _bestPaths.push_back( _currentPath );
+//                _currentPath.pop_back();
             }
         }
         // try go down
         if( (direction != Direction::Up) && (y+1 < mapState.size()) && (mapState[y+1][x] != ULLONG_MAX) )
         {
-            nextScore = findBestPaths(mapState, bestPaths, x, y+1, Direction::Down, minScore, score+(direction == Direction::Down ? 1 : 1001), path);
+            nextScore = findBestPaths(mapState, x, y+1, Direction::Down, score+(direction == Direction::Down ? 1 : 1001));
             if( nextScore > 0 )
             {
                 // this path is better than previous paths, clear best paths array
-                if( nextScore < minScore )
+                if( nextScore < _minScore )
                 {
-                    bestPaths.clear();
+                    _bestPaths.clear();
                 }
-                minScore = nextScore;
-                path.push_back( {x, y} );
-                bestPaths.push_back( path );
-                path.pop_back();
+                _minScore = nextScore;
+//                _currentPath.push_back( std::pair<int, int>(x, y+1) );
+                _bestPaths.push_back( _currentPath );
+//                _currentPath.pop_back();
             }
         }
 
-            printBestPaths({path});
+        _currentPath.pop_back();
+//            printBestPaths(std::vector< std::vector< std::pair<int, int> > >(1, path));
         return 0;
     }
 
@@ -265,7 +275,9 @@ class Helper : public IAoCHelper
 
         // calculate path
         Direction currentDirection = Direction::Right;
-        findPath(mapState, _startTile.first, _startTile.second, currentDirection, this->_firstPuzzleAnswer);
+        _minScore = ULLONG_MAX;
+        findPath(mapState, _startTile.first, _startTile.second, currentDirection);
+        this->_firstPuzzleAnswer = _minScore;
     }
 
     virtual void calculateSecondPuzzleAnswer()
@@ -275,15 +287,19 @@ class Helper : public IAoCHelper
         std::vector< std::vector<unsigned long long> > mapState = generateMapState();
 
         // calculate paths
-        std::vector< std::vector< std::pair<int, int> > > bestPaths;
         Direction currentDirection = Direction::Right;
-        findBestPaths(mapState, bestPaths, _startTile.first, _startTile.second, currentDirection, this->_secondPuzzleAnswer);
+        _minScore = ULLONG_MAX;
+        _bestPaths.clear();
+        _currentPath.clear();
+        findBestPaths(mapState, _startTile.first, _startTile.second, currentDirection);
 
         // sum best paths tiles
-        std::set< std::pair<int, int> > bestTiles = { _startTile, _endTile };
-        for(int i=0; i<bestPaths.size(); ++i)
+        std::set< std::pair<int, int> > bestTiles;
+        bestTiles.insert( _startTile );
+        bestTiles.insert( _endTile );
+        for(int i=0; i<_bestPaths.size(); ++i)
         {
-            std::copy(bestPaths[i].begin(), bestPaths[i].end(), inserter(bestTiles, bestTiles.end()));
+            std::copy(_bestPaths[i].begin(), _bestPaths[i].end(), inserter(bestTiles, bestTiles.end()));
         }
         this->_secondPuzzleAnswer = bestTiles.size();
     }
@@ -293,7 +309,7 @@ int main()
 {
     std::cout << "Advent of Code 2024 - Day 16" << std::endl;
 
-    const std::string inputFileName = "debuginput";
+    const std::string inputFileName = "input";
     Helper helper;
     helper.calculateAnswers(inputFileName);
 
